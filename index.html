@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#131c2b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Roux Lab">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="RouxのFirst Blockを6面回転HTMで最短探索。スクランブルから最短手数を求め、1手ずつパーツを追跡する練習ツール。">
+  <title>Roux Block Lab | First Block 最短手順</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="./" aria-label="Roux Block Lab ホーム"><span class="brandmark" aria-hidden="true">▦</span> ROUX <strong>BLOCK LAB</strong></a><span class="topmeta">FIRST BLOCK / OPTIMAL SOLVER</span></header>
+<main>
+  <div class="page-heading"><div><p class="eyebrow">BLOCK BUILDING</p><h1>最短手順から、先を読む。</h1><p class="intro">First Blockの手数を減らし、次のパーツを追う練習に。</p></div><div class="metric-badge"><span>探索条件</span><strong>6面回転 · HTM</strong></div></div>
+  <section id="pwa-install-panel" class="pwa-install-panel" aria-label="ホーム画面に追加" hidden>
+    <div class="pwa-install-copy"><strong>ホーム画面から、すぐに練習。</strong><p id="pwa-install-description">アプリとして追加すると、専用ウィンドウで起動できます。</p></div>
+    <button id="pwa-install" class="secondary-button" type="button" aria-controls="pwa-install-help" aria-expanded="false">追加方法</button>
+    <div id="pwa-install-help" class="pwa-install-help" hidden><h2 id="pwa-help-title">ホーム画面への追加方法</h2><ol id="pwa-help-steps"></ol><p id="pwa-install-feedback" role="status"></p><p>追加後は一度オンラインで起動し、「オフラインで使えます」の表示をお待ちください。</p></div>
+  </section>
+  <div class="pwa-state-row"><p id="pwa-mode" hidden>アプリとして起動中</p><p id="pwa-offline-status" role="status" aria-live="polite"></p></div>
+  <div id="pwa-update-panel" class="pwa-update-panel" role="status" hidden><p>更新版を利用できます。再読み込みすると、入力中の手順はリセットされます。</p><button id="pwa-update" class="secondary-button" type="button">更新して再起動</button></div>
+  <noscript><p class="error">このツールの利用にはJavaScriptを有効にしてください。</p></noscript>
+  <section class="scramble-panel" aria-labelledby="scramble-heading">
+    <div class="section-title"><h2 id="scramble-heading"><span class="section-number">01</span> スクランブル</h2><button type="button" id="random" class="text-button">↻ 新しいスクランブル</button></div>
+    <label class="sr-only" for="scramble">スクランブル手順</label><textarea id="scramble" rows="2" spellcheck="false" autocapitalize="off" aria-describedby="input-help">R U2 F' L2 D B2 R' U F2 D' L B' U2 R2 F D2 L' U' B R2</textarea>
+    <div class="input-bottom"><p id="input-help">白上・緑前で適用。R U F D L B ／ ' ／ 2 に対応。</p><div class="scramble-actions"><button type="button" id="start-inspection" class="secondary-button">◷ 15秒インスペクション</button><button type="button" id="solve" class="primary-button">最短手順を求める <span aria-hidden="true">→</span></button></div></div>
+    <p id="input-error" class="error" role="alert" hidden></p>
+  </section>
+  <div class="workspace">
+    <section class="cube-panel" aria-labelledby="cube-heading">
+      <div class="section-title"><h2 id="cube-heading"><span class="section-number">02</span> パーツを追う</h2><span id="step-label" class="mono">SCRAMBLE</span></div>
+      <div class="cube-controls"><label>FBの向き <select id="orientation" aria-label="First Blockの配色"></select></label><label>表示 <select id="highlight"><option value="all">すべてのパーツ</option><option value="fb">First Block</option><option value="front">SB 前側の3パーツ</option><option value="back">SB 後側の3パーツ</option></select></label></div>
+      <div class="cube-stage" id="cube-stage"><div id="cube" aria-label="キューブ展開図"></div><div id="inspection-overlay" class="inspection-overlay" hidden><span>INSPECTION</span><strong id="timer">15.0</strong><p id="timer-caption">FBの手順を読み、SBのパーツを追いましょう。</p><button type="button" id="end-inspection" class="secondary-button">終了して手順を確認</button></div></div>
+      <div class="cube-legend"><span><i class="legend-fb"></i> FB：左下の1×2×3</span><span id="orientation-note">白上・緑前からの持ち替え</span></div>
+      <div class="playback" aria-label="手順再生"><button id="reset-step" type="button" aria-label="最初に戻る">|‹</button><button id="prev-step" type="button" aria-label="1手戻る">‹</button><button id="play" type="button" class="play-button" aria-label="自動再生">▶</button><button id="next-step" type="button" aria-label="1手進む">›</button><button id="last-step" type="button" aria-label="最後に進む">›|</button><span id="step-counter" class="mono">0 / 0</span></div>
+      <input type="range" id="step-slider" min="0" max="0" value="0" aria-label="表示する手順の位置">
+      <div class="tracking"><div class="tracking-heading"><h3>Second Blockへのつながり</h3><span>現在の位置</span></div><div id="tracking-pieces"></div></div>
+    </section>
+    <section class="solution-panel" aria-labelledby="solution-heading">
+      <div class="section-title"><h2 id="solution-heading"><span class="section-number">03</span> 最短手順</h2><span id="optimal-badge" class="optimal-badge" hidden>最短確定</span></div>
+      <div class="result-summary"><div><span id="distance" class="distance">—</span><span class="distance-unit">手 <span>HTM</span></span></div><p id="result-caption">スクランブルを入力して探索してください。</p></div>
+      <p id="solver-status" class="solver-status" role="status" aria-live="polite">距離表を読み込み中…</p>
+      <div id="solutions" class="solutions"></div>
+      <div class="own-solution"><label for="own-alg">自分の手順と比較</label><div class="own-input"><input id="own-alg" placeholder="例：U R2 F' D" spellcheck="false" autocapitalize="off"><button type="button" id="check-own" class="secondary-button">判定</button></div><p id="own-result" aria-live="polite">選択中のFBの向きから始める手順を入力。</p></div>
+      <details class="method-note"><summary>「最短」の定義と使い方</summary><div><p>選択した配色の左下1×2×3（DL・FL・BLのエッジ、DLF・DLBのコーナー、Lセンター）を完成させます。スクランブル適用後、図の下に示す持ち替えを行い、その向きから表示手順を回してください。</p><p>探索はU・R・F・D・L・Bの18種類。90度・180度回転をそれぞれ1手と数えます。5パーツの全5,322,240配置への距離表から、固定した配色での最短手数を保証します。</p><p>M・E・Sやワイドターンは探索対象外です。それらを1手とするSTMでの最短値ではありません。開始前の持ち替えは0手で、配色を変更して比較できます。全配色をまとめた最短値ではありません。</p><p>① 15秒でFBを読む → ② 自分の手順を判定 → ③ 最短手順と比較 → ④ SBの3パーツを強調して、1手ごとの移動を予測。SBの「半分」はDR＋前側または後側のペア（2×2×1）を目安にしています。SBの続きの手順は探索しません。</p><p>新しいスクランブルは20手のランダム手順です。公式大会用のランダム状態生成ではありません。</p><a href="https://tutorial.rouxers.com/intermediate/first-block.html" target="_blank" rel="noopener noreferrer">First Blockの構成とアプローチ ↗</a></div></details>
+    </section>
+  </div>
+  <footer><span>ROUX BLOCK LAB</span><p>まずFBを読み切る。その余裕を、次のブロックへ。</p><span>v2.0 / PWA · HTM</span></footer>
+</main>
+<!-- PWA bootstrap is inline so the platform foundation remains index.html + manifest.json + sw.js. -->
+<script id="pwa-bootstrap">
+(() => {
+  'use strict';
+  const byId = id => document.getElementById(id);
+  const panel = byId('pwa-install-panel');
+  const installButton = byId('pwa-install');
+  const help = byId('pwa-install-help');
+  const offlineStatus = byId('pwa-offline-status');
+  const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+  const fullscreenQuery = window.matchMedia('(display-mode: fullscreen)');
+  const localHost = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  const supportsPWA = 'serviceWorker' in navigator && window.isSecureContext && (location.protocol === 'https:' || localHost);
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/i.test(navigator.userAgent);
+  const safari = /Safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent);
+  let deferredPrompt = null;
+  let installedThisSession = false;
+  let installAccepted = false;
+  let prompting = false;
+  let registration = null;
+  let offlineReady = false;
+  let applyingUpdate = false;
+  let reloading = false;
+  const isStandalone = () => standaloneQuery.matches || fullscreenQuery.matches || navigator.standalone === true;
+
+  function renderInstall() {
+    panel.hidden = !supportsPWA || isStandalone() || installedThisSession || installAccepted;
+    byId('pwa-mode').hidden = !isStandalone();
+    installButton.disabled = prompting;
+    installButton.textContent = deferredPrompt ? 'アプリを追加' : '追加方法';
+    installButton.setAttribute('aria-expanded', String(!help.hidden));
+    if (deferredPrompt) installButton.removeAttribute('aria-expanded');
+    byId('pwa-install-description').textContent = deferredPrompt
+      ? 'ホーム画面に追加して、ブラウザのバーがない画面で使えます。'
+      : ios ? 'Safariの共有メニューからホーム画面に追加できます。'
+      : android ? 'Chromeのメニューからもホーム画面に追加できます。'
+      : '対応ブラウザのメニューからアプリとして追加できます。';
+  }
+
+  function showHelp(message = '') {
+    let steps;
+    if (ios) {
+      byId('pwa-help-title').textContent = 'iPhone / iPad（Safari）';
+      steps = [
+        safari ? 'Safariの共有メニューを開きます。画面の「…」から「共有」を選ぶレイアウトもあります。' : '同じページをSafariで開き、共有メニューを開きます。',
+        '「ホーム画面に追加」を選びます。見つからない場合は「アクションを編集」から追加します。',
+        '「Webアプリとして開く」が表示される場合はオンにし、「追加」を押します。',
+        'ホーム画面の「Roux Lab」アイコンから起動します。'
+      ];
+    } else if (android) {
+      byId('pwa-help-title').textContent = 'Android（Chrome）';
+      steps = [
+        'このページをChromeで開き、右上の「︙」メニューを開きます。',
+        '「アプリをインストール」または「ホーム画面に追加」を選び、「インストール」を確定します。',
+        'ホーム画面の「Roux Lab」アイコンから起動します。'
+      ];
+    } else {
+      byId('pwa-help-title').textContent = 'アプリとして追加';
+      steps = ['ブラウザのメニューから、このサイトをアプリとしてインストールする項目を選びます。', 'スマートフォンでは、iPhone / iPadはSafari、AndroidはChromeでこのページを開いてください。'];
+    }
+    const list = byId('pwa-help-steps');
+    list.replaceChildren();
+    steps.forEach(text => { const li = document.createElement('li'); li.textContent = text; list.append(li); });
+    byId('pwa-install-feedback').textContent = message;
+    help.hidden = false;
+    renderInstall();
+  }
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    if (isStandalone() || installedThisSession || installAccepted) return;
+    deferredPrompt = event;
+    renderInstall();
+  });
+
+  installButton.addEventListener('click', async () => {
+    if (prompting) return;
+    if (!deferredPrompt) {
+      if (help.hidden) showHelp();
+      else { help.hidden = true; renderInstall(); }
+      return;
+    }
+    const event = deferredPrompt;
+    deferredPrompt = null; // The saved browser event is single-use.
+    prompting = true;
+    renderInstall();
+    try {
+      // Call directly in the user's click handler, before awaiting anything.
+      const promptResult = event.prompt();
+      await promptResult;
+      const choice = await event.userChoice;
+      if (choice.outcome === 'accepted') installAccepted = true;
+      else showHelp('追加をキャンセルしました。ブラウザのメニューからも追加できます。');
+    } catch {
+      showHelp('追加画面を開けませんでした。次の手順で追加してください。');
+    } finally {
+      prompting = false;
+      renderInstall();
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installedThisSession = true;
+    deferredPrompt = null;
+    renderInstall();
+  });
+  for (const query of [standaloneQuery, fullscreenQuery]) {
+    if (query.addEventListener) query.addEventListener('change', renderInstall);
+    else query.addListener(renderInstall);
+  }
+  window.addEventListener('pageshow', renderInstall);
+
+  function renderConnection() {
+    offlineStatus.textContent = offlineReady
+      ? (navigator.onLine ? 'オフラインで使えます' : 'オフラインで利用中')
+      : (navigator.onLine ? 'オフライン用データを準備中…' : '初回の準備にはインターネット接続が必要です。');
+  }
+
+  function checkOfflineReady() {
+    const active = navigator.serviceWorker.controller || registration?.active;
+    if (!active) return;
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => channel.port1.close(), 10000);
+    channel.port1.onmessage = ({data}) => {
+      clearTimeout(timer);
+      channel.port1.close();
+      if (data?.type !== 'CACHE_STATUS') return;
+      offlineReady = data.ready === true;
+      renderConnection();
+    };
+    active.postMessage({type: 'CACHE_STATUS'}, [channel.port2]);
+  }
+
+  function watchWorker(worker) {
+    if (!worker) return;
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+        byId('pwa-update-panel').hidden = false;
+      } else if (worker.state === 'activated') {
+        checkOfflineReady();
+      } else if (worker.state === 'redundant' && !offlineReady) {
+        offlineStatus.textContent = 'オフラインの準備を完了できませんでした。接続を確認して再読み込みしてください。';
+      }
+    });
+  }
+
+  renderInstall();
+  if (!supportsPWA) {
+    offlineStatus.textContent = 'ホーム画面への追加・オフライン機能は、HTTPSで公開したページから利用してください。';
+    panel.hidden = true;
+    return;
+  }
+
+  renderConnection();
+  if (navigator.serviceWorker.controller) checkOfflineReady();
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (applyingUpdate && !reloading) { reloading = true; location.reload(); return; }
+    checkOfflineReady();
+  });
+  byId('pwa-update').addEventListener('click', () => {
+    if (!registration?.waiting) return;
+    applyingUpdate = true;
+    byId('pwa-update').disabled = true;
+    registration.waiting.postMessage({type: 'SKIP_WAITING'});
+  });
+  window.addEventListener('online', () => {
+    renderConnection();
+    registration?.update().catch(() => {});
+    checkOfflineReady();
+  });
+  window.addEventListener('offline', renderConnection);
+
+  const base = new URL('./', location.href);
+  navigator.serviceWorker.register(new URL('sw.js', base), {scope: base.href, updateViaCache: 'none'})
+    .then(value => {
+      registration = value;
+      watchWorker(value.installing);
+      if (value.waiting) byId('pwa-update-panel').hidden = false;
+      value.addEventListener('updatefound', () => watchWorker(value.installing));
+      checkOfflineReady();
+      return navigator.serviceWorker.ready;
+    })
+    .then(() => checkOfflineReady())
+    .catch(() => {
+      if (navigator.serviceWorker.controller || registration?.active) { checkOfflineReady(); return; }
+      offlineStatus.textContent = 'オフラインの準備を完了できませんでした。接続を確認して再読み込みしてください。';
+    });
+})();
+</script>
+<script type="module" src="./app.mjs"></script>
+</body>
+</html>
